@@ -95,7 +95,10 @@ body {
 
 
 .swap-header h2 {
-  color: #1a202c;
+  color: #4a4a4a;
+  font-size: 1.5rem;
+  font-weight: 500;
+
 }
 
 .balance {
@@ -107,4 +110,129 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 40px; /* Increased spacing below the wallet connect button */
+}
+
+.token-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f1f1;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.token-button:hover {
+  background: #eaeaea;
+}
+
+.token-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.info-section {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.info-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.info-label {
+  font-size: 14px;
+  color: #888;
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Custom Wallet Button Styling */
+.custom-wallet-button {
+  background-color: #007bff; /* Blue background */
+  color: #ffffff; /* White text */
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.custom-wallet-button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+  transform: scale(1.05); /* Slight zoom effect */
+}
+
+.custom-wallet-button:focus {
+  outline: none;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.8);
+}
+/* Custom Styling for WalletMultiButton */
+.wallet-adapter-button {
+  background-color: #007bff; /* Blue background */
+  color: #ffffff; /* White text */
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.wallet-adapter-button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.wallet-adapter-button:focus {
+  outline: none;
+  box-shadow: 0 0 6px rgba(0, 123, 255, 0.8);
+}
+
+.wallet-adapter-button:disabled {
+  background-color: #ddd;
+  cursor: not-allowed;
+}
+
+.input-label {
+  color: #4a4a4a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 3px;
+  margin-right: 6px;
+
+}
+
+.info-row {
+  color: #4a4a4a;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  margin: 5px , 0;
+
+}
+
+.output-row {
+  color: #4a4a4a;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  margin: 5px , 0;
+
 }

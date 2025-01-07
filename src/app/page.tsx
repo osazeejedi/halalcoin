@@ -20,31 +20,39 @@ import { motion } from "framer-motion";
 
 import "@solana/wallet-adapter-react-ui/styles.css"; // Import wallet adapter styles
 
-// Constants
-const SOLANA_NETWORK = "https://solana-mainnet.g.alchemy.com/v2/_KfDwpGQ2NUxae8Ep4ZYH4Gr5yrKwEcU"; // Use Devnet for testing
-const RECEIVER_ADDRESS = "2wiiqCs3DeGz1FcvyNuWtDDusJ2QymjfXWEji5QdjtFy"; // Replace with your wallet address
-const TOKEN_MINT = "9vgjUHcRPdBGXDR6UqesCd6CXQDAsv6oCRgBz21nbbgH"; // Replace with your token's mint address
-const EXCHANGE_RATE = 100; // Example: 1 SOL = 100 tokens
+const SOLANA_NETWORK = "https://solana-mainnet.g.alchemy.com/v2/_KfDwpGQ2NUxae8Ep4ZYH4Gr5yrKwEcU"; // Mainnet
+const RECEIVER_ADDRESS = "2wiiqCs3DeGz1FcvyNuWtDDusJ2QymjfXWEji5QdjtFy";
 
 function SwapComponent() {
-  const [amountSOL, setAmountSOL] = useState("");
+  const [amountUSD, setAmountUSD] = useState("");
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [solPrice, setSolPrice] = useState<number | null>(null);
   const [walletConnected, setWalletConnected] = useState(false);
   const [status, setStatus] = useState("");
   const [isClient, setIsClient] = useState(false);
 
   const connection = new Connection(SOLANA_NETWORK);
 
-   // **Highlight: Function to Notify Framer via PostMessage**
-   const postMessageToParent = (type: any, data = {}) => {
-    if (window.parent) {
-      window.parent.postMessage({ type, ...data }, "*");
-    }
-  };
-
   // Ensure this component only renders on the client
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // Fetch the current price of SOL in USD
+  useEffect(() => {
+    const fetchSolPrice = async () => {
+      try {
+        const response = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+        );
+        const data = await response.json();
+        setSolPrice(data.solana.usd);
+      } catch (error) {
+        console.error("Failed to fetch SOL price:", error);
+      }
+    };
+
+    fetchSolPrice();
   }, []);
 
   // Handle wallet connection and disconnection
@@ -52,21 +60,28 @@ function SwapComponent() {
     const wallet = window.solana;
 
     const handleConnect = () => {
-      setWalletConnected(true);
-      postMessageToParent("walletConnected", { publicKey: wallet.publicKey.toString() }); // Notify Framer
+      try {
+        setWalletConnected(true);
+      } catch (error) {
+        console.error("Error during wallet connection:", error);
+        setStatus("Wallet connection failed. Please try again.");
+      }
     };
 
     const handleDisconnect = () => {
-      setWalletConnected(false);
-      setSolBalance(null); // Reset balance when wallet disconnects
-      postMessageToParent("walletDisconnected"); // Notify Framer
+      try {
+        setWalletConnected(false);
+        setSolBalance(null); // Reset balance when wallet disconnects
+      } catch (error) {
+        console.error("Error during wallet disconnection:", error);
+        setStatus("Wallet disconnection failed. Please try again.");
+      }
     };
 
     if (wallet) {
       wallet.on("connect", handleConnect);
       wallet.on("disconnect", handleDisconnect);
 
-      // If the wallet is already connected, fetch balance
       if (wallet.isConnected) {
         handleConnect();
       }
@@ -87,7 +102,9 @@ function SwapComponent() {
       if (wallet && walletConnected && wallet.publicKey) {
         try {
           const balance = await connection.getBalance(wallet.publicKey);
-          setSolBalance(balance / 1e9); // Convert lamports to SOL
+          const solBalanceInSOL = parseFloat((balance / 1e9).toFixed(9)); // Convert lamports to SOL and ensure precision
+          console.log("Fetched SOL balance:", solBalanceInSOL); // Debug log
+          setSolBalance(solBalanceInSOL);
         } catch (error) {
           console.error("Failed to fetch balance:", error);
           setSolBalance(null);
@@ -98,69 +115,84 @@ function SwapComponent() {
     if (walletConnected) {
       fetchBalance();
     }
-  }, [walletConnected, connection]);
+  }, [walletConnected]);
 
   const handleSwap = async () => {
     const wallet = window.solana;
-  
+
     if (!wallet || !wallet.isConnected) {
       setStatus("Please connect your wallet first.");
       return;
     }
-  
-    if (parseFloat(amountSOL) > (solBalance || 0)) {
-      setStatus("Insufficient SOL balance.");
+
+    const usdAmount = parseFloat(amountUSD);
+    if (isNaN(usdAmount) || usdAmount <= 0) {
+      setStatus("Please enter a valid amount.");
       return;
     }
-  
+
+    if (solBalance === null) {
+      setStatus("Unable to fetch SOL balance. Please try again.");
+      return;
+    }
+
+    if (solPrice === null) {
+      setStatus("Unable to fetch SOL price. Please try again.");
+      return;
+    }
+
+    // Convert USD to SOL based on the live price
+    const solAmount = usdAmount / solPrice;
+
+    console.log("SOL Amount to transfer:", solAmount);
+    console.log("SOL Balance:", solBalance);
+
+    if (solAmount > solBalance) {
+      setStatus(
+        `Insufficient SOL balance. You need at least ${solAmount.toFixed(4)} SOL to complete this swap.`
+      );
+      return;
+    }
+
     try {
       const publicKey = wallet.publicKey;
       const receiverPublicKey = new PublicKey(RECEIVER_ADDRESS);
-  
-      console.log("Sender PublicKey:", publicKey.toString());
-      console.log("Receiver PublicKey:", receiverPublicKey.toString());
-      console.log("Amount to transfer (in lamports):", parseFloat(amountSOL) * 1e9);
-  
-      // Fetch the latest blockhash
+
       const { blockhash } = await connection.getLatestBlockhash();
-      console.log("Fetched recentBlockhash:", blockhash);
-  
-      // Create the SOL transfer transaction
-      const transaction = new Transaction();
-      transaction.add(
+
+      const transaction = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: publicKey,
           toPubkey: receiverPublicKey,
-          lamports: parseFloat(amountSOL) * 1e9, // Convert SOL to lamports
+          lamports: Math.round(solAmount * 1e9), // Convert SOL to lamports and round to nearest integer
         })
       );
-  
-      // Assign the blockhash and fee payer
+
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
-  
-      console.log("Transaction prepared:", transaction);
-  
-      // Sign and send the transaction
-      const signature = await wallet.signAndSendTransaction(transaction);
-      console.log("Transaction signature:", signature);
-  
-      setStatus("Swap complete! Tokens have been sent to your wallet.");
-    } catch (err) {
-      let errorMessage = "Unknown error";
-      if (err instanceof Error) {
-        errorMessage = err.message;
+
+      try {
+        const signature = await wallet.signAndSendTransaction(transaction);
+        console.log("Transaction successful with signature:", signature);
+
+         // Ensure signature is a string
+        const signatureString = signature.toString();
+
+        // Generate Solana Explorer link
+        const explorerLink = `https://solscan.io/tx/${signatureString}?cluster=mainnet`;
+        setStatus(
+          `Swap complete! Tokens have been sent to your wallet.`
+        );
+      } catch (transactionError) {
+        console.error("Transaction signing or sending failed:", transactionError);
+        setStatus("Transaction failed due to network issues or invalid inputs. Please try again.");
+        return;
       }
-      console.error("Transaction failed:", err);
+    } catch (error) {
+      console.error("Transaction preparation failed:", error);
       setStatus("Swap failed. Check the console for details.");
-      postMessageToParent("transactionStatus", {
-        status: "error",
-        error: errorMessage,
-      }); // Notify Framer
-      // Notify Framer
     }
   };
-  
 
   if (!isClient) return null; // Prevent server-side rendering issues
 
@@ -170,82 +202,44 @@ function SwapComponent() {
         <WalletModalProvider>
           <div className="container">
             <div className="swap-header">
-              <h2>Buy Cheese</h2>
-              <WalletMultiButton />
+              <h2>Buy Halal coin</h2>
+              <WalletMultiButton className="wallet-button" />
             </div>
 
             {/* Input Section */}
-            <motion.div
-              className="input-row"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
-            >
+            <div className="input-row">
               <div className="input-box">
+                <label className="input-label">Enter Amount (USD):</label>
                 <input
                   type="number"
                   placeholder="0.0"
-                  value={amountSOL}
-                  onChange={(e) => setAmountSOL(e.target.value)}
-                  style={{ border: "none", outline: "none", width: "100%" }}
+                  value={amountUSD}
+                  onChange={(e) => setAmountUSD(e.target.value)}
+                  style={{
+                    border: "1px solid #ddd",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    width: "100%",
+                  }}
                 />
-                <button className="token-button">
-                  <img
-                    src="https://cryptologos.cc/logos/solana-sol-logo.png"
-                    alt="SOL Logo"
-                    className="token-logo"
-                  />
-                  <span>SOL</span>
-                </button>
               </div>
-            </motion.div>
-            <p className="balance">
-              Balance:{" "}
-              {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : "N/A"}
-            </p>
+            </div>
 
-            {/* Down Arrow */}
-            <motion.div
-              className="swap-arrow"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: { delay: 0.2, duration: 0.5 } }}
-            >
-              ↓
-            </motion.div>
+            <div className="info-row">
+              <p>Balance: {solBalance !== null ? `${solBalance.toFixed(2)} SOL` : "0"}</p>
+              <p>SOL Price: {solPrice !== null ? `$${solPrice.toFixed(2)}` : "Fetching..."}</p>
+            </div>
 
-            {/* Output Section */}
-            <motion.div
-              className="input-row"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0, transition: { delay: 0.2, duration: 0.5 } }}
-            >
-              <div className="input-box">
-                <input
-                  type="text"
-                  placeholder="0.0"
-                  value={amountSOL ? (parseFloat(amountSOL) * EXCHANGE_RATE).toFixed(2) : ""}
-                  readOnly
-                  style={{ border: "none", outline: "none", width: "100%" }}
-                />
-                <button className="token-button">
-                  <img
-                    src="https://cryptologos.cc/logos/your-token-logo.png"
-                    alt="Token Logo"
-                    className="token-logo"
-                  />
-                  <span>CHE</span>
-                </button>
-              </div>
-            </motion.div>
+            <div className="output-row">
+              <p>
+                You will receive: {amountUSD ? `${(parseFloat(amountUSD)).toFixed(2)} HAL` : "0"}
+              </p>
+            </div>
 
             {/* Swap Button */}
-            <motion.button
-              className="swap-button"
-              onClick={handleSwap}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Swap
-            </motion.button>
+            <button className="swap-button" onClick={handleSwap}>
+              Buy
+            </button>
             <p>{status}</p>
           </div>
         </WalletModalProvider>

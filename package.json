@@ -9,15 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@reown/walletkit": "^1.1.2",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@solana/web3.js": "^1.98.0",
+    "@thirdweb-dev/react": "^4.9.4",
+    "@thirdweb-dev/sdk": "^4.0.99",
+    "@thirdweb-dev/solana": "^0.2.15",
+    "@walletconnect/core": "^2.17.3",
+    "@walletconnect/utils": "^2.17.3",
+    "ethers": "^5.7.2",
     "framer-motion": "^11.15.0",
     "next": "15.1.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "thirdweb": "^5.80.0"
   },
   "devDependencies": {
     "@types/node": "^20",
